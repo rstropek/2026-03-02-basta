@@ -1,0 +1,9 @@
+POST https://localhost:7196/conversations
+
+###
+POST https://localhost:7196/conversations/1/chat
+Content-Type: application/json
+
+{
+  "message": "I need flowers"
+}
