@@ -1,4 +1,5 @@
 using ChatBot;
+using ChatBot.AgentFramework;
 using ChatBot.Traditional;
 using ChatBotDb;
 using OpenAI.Responses;
@@ -9,6 +10,7 @@ builder.AddSqliteDbContext<ApplicationDataContext>("chatbot-db");
 builder.Services.AddScoped<ISessionRepository, SessionRepository>();
 builder.Services.AddSingleton<DeveloperMessageProvider>();
 builder.Services.AddScoped<OpenAIManager>();
+builder.Services.AddScoped<AgentFrameworkManager>();
 
 // Add services to the container.
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
@@ -36,6 +38,7 @@ if (app.Environment.IsDevelopment())
 app.UseHttpsRedirection();
 
 app.MapTraditionalConversationsEndpoints();
+app.MapAgentFrameworkConversationsEndpoints();
 
 app.Run();
 

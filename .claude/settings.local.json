@@ -1,7 +1,19 @@
 {
   "permissions": {
     "allow": [
-      "Bash(dotnet ef:*)"
+      "Bash(dotnet ef:*)",
+      "WebSearch",
+      "mcp__MsLearn__microsoft_docs_search",
+      "mcp__MsLearn__microsoft_code_sample_search",
+      "mcp__MsLearn__microsoft_docs_fetch",
+      "Bash(dotnet restore:*)",
+      "Bash(dotnet test:*)",
+      "Bash(dotnet:*)",
+      "Bash(ilspycmd:*)"
     ]
-  }
+  },
+  "enableAllProjectMcpServers": true,
+  "enabledMcpjsonServers": [
+    "MsLearn"
+  ]
 }
