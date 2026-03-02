@@ -1,11 +1,13 @@
 using System.Runtime.CompilerServices;
 using System.Text.Json;
+using ChatBotDb;
 using OpenAI.Responses;
 
 namespace ChatBot.Traditional;
 
 public class OpenAIManager(ResponsesClient client,
-    IConfiguration config, DeveloperMessageProvider developerMessageProvider)
+    IConfiguration config, DeveloperMessageProvider developerMessageProvider,
+    ApplicationDataContext db)
 {
     private string Model => config["OPENAI_MODEL"] ?? throw new InvalidOperationException("OPENAI_MODEL not set");
 
@@ -42,6 +44,7 @@ public class OpenAIManager(ResponsesClient client,
                     if (doneUpdate.Item is FunctionCallResponseItem functionCall)
                     {
                         requiresAction = true;
+                        FunctionCallOutputResponseItem functionResult;
 
                         // For demo purposes, we notify the client of the function call
                         yield return new AssistantResponseMessage($"""
@@ -51,6 +54,34 @@ public class OpenAIManager(ResponsesClient client,
                             ```
 
                             """);
+
+                        switch (functionCall.FunctionName)
+                        {
+                            case nameof(ProductsTools.GetAvailableColorsForFlower):
+                                var argument = JsonSerializer.Deserialize<ProductsTools.GetAvailableColorsForFlowerRequest>(functionCall.FunctionArguments)!;
+                                var availableColors = ProductsTools.GetAvailableColorsForFlower(argument);
+                                var availableColorsJson = JsonSerializer.Serialize(availableColors);
+                                functionResult = new FunctionCallOutputResponseItem(functionCall.CallId, availableColorsJson);
+                                break;
+
+                            case nameof(ProductsTools.GetBouquetSizes):
+                                var sizes = await ProductsTools.GetBouquetSizes(db);
+                                var sizesJson = JsonSerializer.Serialize(sizes);
+                                functionResult = new FunctionCallOutputResponseItem(functionCall.CallId, sizesJson);
+                                break;
+
+                            case nameof(ProductsTools.GetBouquetPrice):
+                                var priceRequest = JsonSerializer.Deserialize<ProductsTools.GetBouquetPriceRequest>(functionCall.FunctionArguments)!;
+                                var price = await ProductsTools.GetBouquetPrice(db, priceRequest);
+                                var priceJson = JsonSerializer.Serialize(price);
+                                functionResult = new FunctionCallOutputResponseItem(functionCall.CallId, priceJson);
+                                break;
+
+                            default:
+                                throw new NotImplementedException();
+                        }
+
+                        conversation.Add(functionResult);
                     }
                 }
             }
@@ -70,6 +101,7 @@ public class OpenAIManager(ResponsesClient client,
             MaxOutputTokenCount = 2500,
             StoredOutputEnabled = false,
             StreamingEnabled = true,
+            Tools = { ProductsTools.GetAvailableColorsForFlowerTool, ProductsTools.GetBouquetSizesTool, ProductsTools.GetBouquetPriceTool }
         };
 
         return options;
