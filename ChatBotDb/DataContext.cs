@@ -7,6 +7,13 @@ public partial class ApplicationDataContext(DbContextOptions<ApplicationDataCont
 {
     public DbSet<Conversation> Conversations { get; set; }
     public DbSet<Order> Orders { get; set; }
+
+    protected override void OnModelCreating(ModelBuilder modelBuilder)
+    {
+        modelBuilder.Entity<Order>()
+            .Property(o => o.Price)
+            .HasColumnType("REAL");
+    }
 }
 
 public class ApplicationDataContextFactory : IDesignTimeDbContextFactory<ApplicationDataContext>

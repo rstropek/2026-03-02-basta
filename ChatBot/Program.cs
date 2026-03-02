@@ -4,6 +4,7 @@ using ChatBotDb;
 var builder = WebApplication.CreateBuilder(args);
 builder.AddServiceDefaults();
 builder.AddSqliteDbContext<ApplicationDataContext>("chatbot-db");
+builder.Services.AddScoped<ISessionRepository, SessionRepository>();
 
 // Add services to the container.
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi

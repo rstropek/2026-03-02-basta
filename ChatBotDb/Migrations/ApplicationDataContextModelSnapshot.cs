@@ -44,6 +44,9 @@ namespace ChatBotDb.Migrations
                         .IsRequired()
                         .HasColumnType("TEXT");
 
+                    b.Property<decimal>("Price")
+                        .HasColumnType("REAL");
+
                     b.Property<string>("Size")
                         .IsRequired()
                         .HasColumnType("TEXT");
