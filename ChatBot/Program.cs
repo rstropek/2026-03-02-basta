@@ -19,6 +19,7 @@ builder.Services.AddSingleton(_ => new ResponsesClient(
     new System.ClientModel.ApiKeyCredential(builder.Configuration["OPENAI_API_KEY"]!)));
 
 builder.Services.AddCors();
+builder.Services.AddSingleton<McpToolsProvider>();
 
 var app = builder.Build();
 

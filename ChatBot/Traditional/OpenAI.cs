@@ -1,13 +1,12 @@
 using System.Runtime.CompilerServices;
 using System.Text.Json;
-using ChatBotDb;
+using ModelContextProtocol.Protocol;
 using OpenAI.Responses;
 
 namespace ChatBot.Traditional;
 
 public class OpenAIManager(ResponsesClient client,
-    IConfiguration config, DeveloperMessageProvider developerMessageProvider,
-    ApplicationDataContext db)
+    IConfiguration config, McpToolsProvider mcpToolsProvider, DeveloperMessageProvider developerMessageProvider)
 {
     private string Model => config["OPENAI_MODEL"] ?? throw new InvalidOperationException("OPENAI_MODEL not set");
 
@@ -15,13 +14,17 @@ public class OpenAIManager(ResponsesClient client,
         IList<ResponseItem> conversation,
         [EnumeratorCancellation] CancellationToken cancellationToken)
     {
+        // Get tools provided by MCP server
+        var mcpClient = await mcpToolsProvider.GetClientAsync();
+        var mcpTools = await mcpClient.ListFunctionTools();
+
         // We loop until no more function calls are required
         bool requiresAction;
         do
         {
             requiresAction = false;
 
-            var options = await GetResponseCreationOptions(conversation);
+            var options = await GetResponseCreationOptions(conversation, mcpTools);
 
             var response = client.CreateResponseStreamingAsync(options, cancellationToken);
             await foreach (var chunk in response)
@@ -58,27 +61,31 @@ public class OpenAIManager(ResponsesClient client,
                         switch (functionCall.FunctionName)
                         {
                             case nameof(ProductsTools.GetAvailableColorsForFlower):
+                                // This demonstrates how to call a local function tool
                                 var argument = JsonSerializer.Deserialize<ProductsTools.GetAvailableColorsForFlowerRequest>(functionCall.FunctionArguments)!;
                                 var availableColors = ProductsTools.GetAvailableColorsForFlower(argument);
                                 var availableColorsJson = JsonSerializer.Serialize(availableColors);
                                 functionResult = new FunctionCallOutputResponseItem(functionCall.CallId, availableColorsJson);
                                 break;
 
-                            case nameof(ProductsTools.GetBouquetSizes):
-                                var sizes = await ProductsTools.GetBouquetSizes(db);
-                                var sizesJson = JsonSerializer.Serialize(sizes);
-                                functionResult = new FunctionCallOutputResponseItem(functionCall.CallId, sizesJson);
-                                break;
-
-                            case nameof(ProductsTools.GetBouquetPrice):
-                                var priceRequest = JsonSerializer.Deserialize<ProductsTools.GetBouquetPriceRequest>(functionCall.FunctionArguments)!;
-                                var price = await ProductsTools.GetBouquetPrice(db, priceRequest);
-                                var priceJson = JsonSerializer.Serialize(price);
-                                functionResult = new FunctionCallOutputResponseItem(functionCall.CallId, priceJson);
-                                break;
+                            // Here we could add additional function tools
 
                             default:
-                                throw new NotImplementedException();
+                                // This demonstrates how to call a tool provided by the MCP server
+                                var mcpTool = mcpTools.FirstOrDefault(t => t.FunctionName == functionCall.FunctionName);
+                                if (mcpTool != null)
+                                {
+                                    var functionArguments = JsonSerializer.Deserialize<Dictionary<string, object?>>(functionCall.FunctionArguments)!;
+                                    var callResult = await mcpClient.CallToolAsync(functionCall.FunctionName, functionArguments, cancellationToken: cancellationToken);
+                                    var resultText = callResult.Content.OfType<TextContentBlock>().FirstOrDefault()?.Text ?? "";
+                                    functionResult = new FunctionCallOutputResponseItem(functionCall.CallId, resultText);
+                                }
+                                else
+                                {
+                                    functionResult = new FunctionCallOutputResponseItem(functionCall.CallId, "Function not found");
+                                }
+
+                                break;
                         }
 
                         conversation.Add(functionResult);
@@ -89,7 +96,7 @@ public class OpenAIManager(ResponsesClient client,
         while (requiresAction);
     }
 
-    private async Task<CreateResponseOptions> GetResponseCreationOptions(IList<ResponseItem> conversation)
+    private async Task<CreateResponseOptions> GetResponseCreationOptions(IList<ResponseItem> conversation, FunctionTool[] mcpTools)
     {
         var options = new CreateResponseOptions(conversation, Model)
         {
@@ -101,8 +108,10 @@ public class OpenAIManager(ResponsesClient client,
             MaxOutputTokenCount = 2500,
             StoredOutputEnabled = false,
             StreamingEnabled = true,
-            Tools = { ProductsTools.GetAvailableColorsForFlowerTool, ProductsTools.GetBouquetSizesTool, ProductsTools.GetBouquetPriceTool }
+            Tools = { ProductsTools.GetAvailableColorsForFlowerTool }
         };
+
+        foreach (var tool in mcpTools) { options.Tools.Add(tool); }
 
         return options;
     }
