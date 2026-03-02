@@ -9,8 +9,12 @@ var model = builder.AddParameter(
     builder.Configuration["Parameters:openai-model"]!);
 var apiKey = builder.AddParameter("openai-api-key", secret: true);
 
+var cartMcp = builder.AddProject<Projects.CartMcp>("cart-mcp")
+    .WithReference(sqlite);
+
 var chatbot = builder.AddProject<Projects.ChatBot>("chatbot")
     .WithReference(sqlite)
+    .WithReference(cartMcp)
     .WithEnvironment("OPENAI_MODEL", model)
     .WithEnvironment("OPENAI_API_KEY", apiKey);
 
