@@ -14,4 +14,9 @@ var chatbot = builder.AddProject<Projects.ChatBot>("chatbot")
     .WithEnvironment("OPENAI_MODEL", model)
     .WithEnvironment("OPENAI_API_KEY", apiKey);
 
+builder.AddNpmApp("chat-ui", "../ChatUI")
+    .WithReference(chatbot)
+    .WithHttpEndpoint(env: "PORT")
+    .WithExternalHttpEndpoints();
+    
 builder.Build().Run();
