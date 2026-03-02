@@ -1,11 +1,17 @@
+using ChatBot;
+using ChatBotDb;
+
 var builder = WebApplication.CreateBuilder(args);
 builder.AddServiceDefaults();
+builder.AddSqliteDbContext<ApplicationDataContext>("chatbot-db");
 
 // Add services to the container.
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 builder.Services.AddOpenApi();
 
 var app = builder.Build();
+
+await app.Services.ApplyMigrations();
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
